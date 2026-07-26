@@ -1,0 +1,6 @@
+{
+  "version": "2.1.0",
+  "downloadUrl": "https://example.com/DiscordActivity.exe",
+  "sha256": "REPLACE_WITH_THE_EXE_SHA256_CHECKSUM",
+  "releaseNotes": "Describe the changes in this release."
+}
