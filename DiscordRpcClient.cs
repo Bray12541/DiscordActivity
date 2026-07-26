@@ -53,25 +53,31 @@ internal sealed class DiscordRpcClient : IDisposable
 
     public Task SetActivityAsync(DetectedActivity detected, CancellationToken cancellationToken)
     {
-        var mapping = detected.Mapping;
+        var activity = BuildActivityPayload(detected.Mapping);
+        return SendCommandAsync(activity, cancellationToken);
+    }
+
+    private static Dictionary<string, object?> BuildActivityPayload(AppMapping mapping)
+    {
         var activity = new Dictionary<string, object?>
         {
             ["type"] = 0,
-            ["details"] = EmptyToNull(mapping.Details),
-            ["state"] = EmptyToNull(mapping.State),
             ["timestamps"] = new { start = DateTimeOffset.UtcNow.ToUnixTimeSeconds() }
         };
+        AddIfNotBlank(activity, "details", mapping.Details);
+        AddIfNotBlank(activity, "state", mapping.State);
 
         var artwork = !string.IsNullOrWhiteSpace(mapping.LargeImageKey)
             ? mapping.LargeImageKey.Trim()
             : mapping.ArtworkUrl.Trim();
         if (!string.IsNullOrWhiteSpace(artwork))
         {
-            activity["assets"] = new
+            var assets = new Dictionary<string, object?>
             {
-                large_image = artwork,
-                large_text = EmptyToNull(mapping.LargeImageText)
+                ["large_image"] = artwork
             };
+            AddIfNotBlank(assets, "large_text", mapping.LargeImageText);
+            activity["assets"] = assets;
         }
 
         if (Uri.TryCreate(mapping.ButtonUrl, UriKind.Absolute, out var buttonUri)
@@ -84,7 +90,7 @@ internal sealed class DiscordRpcClient : IDisposable
             };
         }
 
-        return SendCommandAsync(activity, cancellationToken);
+        return activity;
     }
 
     public Task ClearActivityAsync(CancellationToken cancellationToken) =>
@@ -240,8 +246,11 @@ internal sealed class DiscordRpcClient : IDisposable
             ? value.GetString() ?? ""
             : "";
 
-    private static string? EmptyToNull(string value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static void AddIfNotBlank(IDictionary<string, object?> target, string key, string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            target[key] = value.Trim();
+    }
 
     private void DisposePipeFromReader()
     {
