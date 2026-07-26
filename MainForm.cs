@@ -5,6 +5,7 @@ namespace DiscordActivity;
 
 internal sealed class MainForm : Form
 {
+    private const int ArtworkPanelWidth = 250;
     private readonly TextBox _clientId = new();
     private readonly NumericUpDown _pollInterval = new();
     private readonly CheckBox _startWithWindows = new();
@@ -41,10 +42,21 @@ internal sealed class MainForm : Form
         _mappings = new BindingList<AppMapping>(config.Mappings.Select(Clone).ToList());
 
         Text = "Discord Activity";
+        AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96F, 96F);
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(980, 620);
+        MinimumSize = new Size(720, 520);
         Size = new Size(1180, 720);
         FormBorderStyle = FormBorderStyle.Sizable;
+        KeyPreview = true;
+        KeyDown += (_, args) =>
+        {
+            if (args.Control && args.KeyCode == Keys.S)
+            {
+                SaveConfig();
+                args.SuppressKeyPress = true;
+            }
+        };
 
         BuildLayout();
         _clientId.Text = config.ClientId;
@@ -73,9 +85,8 @@ internal sealed class MainForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 1,
-            RowCount = 5
+            RowCount = 4
         };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -88,17 +99,31 @@ internal sealed class MainForm : Form
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 4)
         });
-        root.Controls.Add(new Label
+        var subtitle = new Label
         {
             Text = "Automatically detect games, publish Rich Presence, and track your playtime.",
-            AutoSize = true,
+            AutoSize = false,
+            AutoEllipsis = true,
+            Dock = DockStyle.Fill,
+            Height = 24,
             Margin = new Padding(0, 0, 0, 14)
-        });
+        };
+        root.Controls.Add(subtitle);
 
-        root.Controls.Add(BuildSettings());
         root.Controls.Add(BuildTabs());
         root.Controls.Add(BuildBottomBar());
         Controls.Add(root);
+    }
+
+    private TabPage BuildGeneralTab()
+    {
+        var page = new TabPage("General")
+        {
+            Padding = new Padding(12),
+            AutoScroll = true
+        };
+        page.Controls.Add(BuildSettings());
+        return page;
     }
 
     private Control BuildSettings()
@@ -107,13 +132,12 @@ internal sealed class MainForm : Form
         {
             AutoSize = true,
             Dock = DockStyle.Top,
-            ColumnCount = 4,
+            ColumnCount = 2,
+            RowCount = 5,
             Margin = new Padding(0, 0, 0, 14)
         };
         settings.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         settings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        settings.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        settings.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
         settings.Controls.Add(new Label
         {
@@ -126,7 +150,7 @@ internal sealed class MainForm : Form
         settings.Controls.Add(_clientId, 1, 0);
         var portal = new Button { Text = "Open Developer Portal", AutoSize = true };
         portal.Click += (_, _) => OpenUrl("https://discord.com/developers/applications");
-        settings.Controls.Add(portal, 2, 0);
+        settings.Controls.Add(portal, 1, 1);
 
         settings.Controls.Add(new Label
         {
@@ -134,7 +158,7 @@ internal sealed class MainForm : Form
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Margin = new Padding(0, 10, 3, 0)
-        }, 0, 1);
+        }, 0, 2);
         var intervalPanel = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
         _pollInterval.Minimum = 1;
         _pollInterval.Maximum = 60;
@@ -144,9 +168,16 @@ internal sealed class MainForm : Form
         {
             Text = "seconds", AutoSize = true, Margin = new Padding(3, 6, 0, 0)
         });
-        settings.Controls.Add(intervalPanel, 1, 1);
+        settings.Controls.Add(intervalPanel, 1, 2);
 
-        var options = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        var options = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = new Padding(0, 6, 0, 3)
+        };
         ConfigureCheckBox(_startWithWindows, "Start with Windows");
         ConfigureCheckBox(_showUnmapped, "Show unmapped applications");
         ConfigureCheckBox(_autoRescan, "Rescan game libraries automatically");
@@ -155,28 +186,38 @@ internal sealed class MainForm : Form
         options.Controls.Add(_showUnmapped);
         options.Controls.Add(_autoRescan);
         options.Controls.Add(_removeUninstalled);
-        settings.Controls.Add(options, 2, 1);
+        settings.Controls.Add(options, 0, 3);
         settings.SetColumnSpan(options, 2);
 
         ConfigureCheckBox(_idleDetection, "Clear presence when idle for");
         _idleMinutes.Minimum = 1;
         _idleMinutes.Maximum = 1440;
         _idleMinutes.Width = 65;
-        var idlePanel = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
+        var idlePanel = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            WrapContents = true
+        };
         idlePanel.Controls.Add(_idleDetection);
         idlePanel.Controls.Add(_idleMinutes);
         idlePanel.Controls.Add(new Label
         {
             Text = "minutes", AutoSize = true, Margin = new Padding(3, 6, 0, 0)
         });
-        settings.Controls.Add(idlePanel, 1, 2);
-        settings.SetColumnSpan(idlePanel, 3);
+        settings.Controls.Add(idlePanel, 0, 4);
+        settings.SetColumnSpan(idlePanel, 2);
         return settings;
     }
 
     private Control BuildTabs()
     {
-        var tabs = new TabControl { Dock = DockStyle.Fill };
+        var tabs = new TabControl
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true
+        };
+        tabs.TabPages.Add(BuildGeneralTab());
         tabs.TabPages.Add(BuildMappingsTab());
         tabs.TabPages.Add(BuildStatisticsTab());
         tabs.TabPages.Add(BuildPrivacyTab());
@@ -198,8 +239,9 @@ internal sealed class MainForm : Form
 
         var tools = new FlowLayoutPanel
         {
-            Dock = DockStyle.Top,
+            Dock = DockStyle.Fill,
             AutoSize = true,
+            WrapContents = true,
             Margin = new Padding(0, 0, 0, 8)
         };
         var rescan = new Button { Text = "Rescan game libraries", AutoSize = true };
@@ -221,9 +263,9 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            SplitterDistance = 850,
             FixedPanel = FixedPanel.Panel2
         };
+        split.SizeChanged += (_, _) => ResizeMappingSplit(split);
         split.Panel1.Controls.Add(_grid);
         var previewPanel = new TableLayoutPanel
         {
@@ -247,8 +289,10 @@ internal sealed class MainForm : Form
         _artworkPreview.LoadCompleted += (_, args) =>
             _artworkStatus.Text = args.Error is null ? "Artwork loaded" : "Artwork could not be loaded";
         previewPanel.Controls.Add(_artworkPreview);
-        _artworkStatus.AutoSize = true;
-        _artworkStatus.MaximumSize = new Size(240, 0);
+        _artworkStatus.AutoSize = false;
+        _artworkStatus.AutoEllipsis = true;
+        _artworkStatus.Dock = DockStyle.Fill;
+        _artworkStatus.Height = 42;
         previewPanel.Controls.Add(_artworkStatus);
         split.Panel2.Controls.Add(previewPanel);
         layout.Controls.Add(split);
@@ -268,7 +312,12 @@ internal sealed class MainForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        var tools = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top };
+        var tools = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            WrapContents = true
+        };
         var refresh = new Button { Text = "Refresh", AutoSize = true };
         refresh.Click += (_, _) => RefreshStatistics();
         var reset = new Button { Text = "Reset statistics", AutoSize = true };
@@ -296,7 +345,11 @@ internal sealed class MainForm : Form
 
     private TabPage BuildPrivacyTab()
     {
-        var page = new TabPage("Privacy exclusions") { Padding = new Padding(12) };
+        var page = new TabPage("Privacy exclusions")
+        {
+            Padding = new Padding(12),
+            AutoScroll = true
+        };
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -305,13 +358,17 @@ internal sealed class MainForm : Form
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        layout.Controls.Add(new Label
+        var privacyHelp = new Label
         {
             Text = "These processes are never shown or counted, even when unmapped-app detection is enabled. " +
                    "Enter one executable name per line; .exe is optional.",
-            AutoSize = true,
+            AutoSize = false,
+            AutoEllipsis = true,
+            Dock = DockStyle.Fill,
+            Height = 42,
             Margin = new Padding(0, 0, 0, 10)
-        });
+        };
+        layout.Controls.Add(privacyHelp);
         _privacy.Multiline = true;
         _privacy.AcceptsReturn = true;
         _privacy.ScrollBars = ScrollBars.Vertical;
@@ -324,7 +381,11 @@ internal sealed class MainForm : Form
 
     private TabPage BuildBackupAndUpdatesTab()
     {
-        var page = new TabPage("Backup & updates") { Padding = new Padding(16) };
+        var page = new TabPage("Backup & updates")
+        {
+            Padding = new Padding(16),
+            AutoScroll = true
+        };
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -339,7 +400,12 @@ internal sealed class MainForm : Form
         layout.Controls.Add(_darkMode, 0, 0);
         layout.SetColumnSpan(_darkMode, 2);
 
-        var backupPanel = new FlowLayoutPanel { AutoSize = true };
+        var backupPanel = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Fill,
+            WrapContents = true
+        };
         var export = new Button { Text = "Export backup", AutoSize = true };
         export.Click += (_, _) => ExportBackup();
         var import = new Button { Text = "Restore backup", AutoSize = true };
@@ -381,14 +447,15 @@ internal sealed class MainForm : Form
         var openLogs = new Button { Text = "Open crash logs", AutoSize = true };
         openLogs.Click += (_, _) => OpenLogFolder();
         layout.Controls.Add(openLogs, 1, 6);
-        layout.Controls.Add(new Label
+        var updateHelp = new Label
         {
             Text = "GitHub updates use the latest public release and assets named DiscordActivity.exe " +
                    "and DiscordActivity.sha256. Downloads are installed only after checksum verification.",
             AutoSize = true,
-            MaximumSize = new Size(760, 0),
+            Dock = DockStyle.Fill,
             Margin = new Padding(0, 12, 0, 0)
-        }, 1, 7);
+        };
+        layout.Controls.Add(updateHelp, 1, 7);
         page.Controls.Add(layout);
         return page;
     }
@@ -399,11 +466,13 @@ internal sealed class MainForm : Form
         {
             Dock = DockStyle.Bottom,
             AutoSize = true,
-            ColumnCount = 2,
+            ColumnCount = 1,
+            RowCount = 2,
             Margin = new Padding(0, 12, 0, 0)
         };
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bottom.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        bottom.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         _status.Text = "Starting…";
         _status.AutoEllipsis = true;
@@ -411,18 +480,43 @@ internal sealed class MainForm : Form
         _status.Anchor = AnchorStyles.Left;
         bottom.Controls.Add(_status, 0, 0);
 
-        var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        var buttons = new FlowLayoutPanel
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = true
+        };
         var openConfig = new Button { Text = "Open data folder", AutoSize = true };
         openConfig.Click += (_, _) => OpenConfigFolder();
         var save = new Button { Text = "Save", AutoSize = true };
         save.Click += (_, _) => SaveConfig();
         var hide = new Button { Text = "Hide to tray", AutoSize = true };
         hide.Click += (_, _) => Hide();
-        buttons.Controls.Add(openConfig);
-        buttons.Controls.Add(save);
         buttons.Controls.Add(hide);
-        bottom.Controls.Add(buttons, 1, 0);
+        buttons.Controls.Add(save);
+        buttons.Controls.Add(openConfig);
+        bottom.Controls.Add(buttons, 0, 1);
+        AcceptButton = save;
         return bottom;
+    }
+
+    private static void ResizeMappingSplit(SplitContainer split)
+    {
+        const int minimumGridWidth = 260;
+        const int minimumPreviewWidth = 180;
+        var available = split.ClientSize.Width - split.SplitterWidth;
+        if (available <= minimumGridWidth + minimumPreviewWidth)
+            return;
+
+        var previewWidth = Math.Clamp(ArtworkPanelWidth, minimumPreviewWidth,
+            available - minimumGridWidth);
+        var distance = available - previewWidth;
+        if (distance != split.SplitterDistance)
+            split.SplitterDistance = distance;
+        split.Panel1MinSize = minimumGridWidth;
+        split.Panel2MinSize = minimumPreviewWidth;
     }
 
     private void ConfigureMappingGrid()
